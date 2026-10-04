@@ -1,0 +1,12 @@
+# Used by Netlify and Cloudflare Pages (ignored by GitHub Pages, which is fine).
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), geolocation=(self), microphone=(self), screen-wake-lock=(self)
+/sw.js
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Content-Type: application/manifest+json

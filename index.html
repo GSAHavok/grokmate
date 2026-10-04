@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https:; media-src 'self' data: blob:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>GrokMate</title>
+  <meta name="description" content="GrokMate Mobile: your AI voice assistant on your phone. Chat, timers, notes, reminders and weather.">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="GrokMate">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <noscript><p class="noscript">GrokMate needs JavaScript. Open it in Chrome (Android) or Safari (iPhone).</p></noscript>
+
+  <!-- ============================================================ license -->
+  <section id="screen-license" class="screen hidden" aria-labelledby="lic-title">
+    <div class="hero">
+      <img src="icons/icon-192.png" alt="" class="hero-logo" width="96" height="96">
+      <h1 id="lic-title">GrokMate</h1>
+      <p class="muted">Your AI assistant on PC and phone</p>
+    </div>
+    <form id="licForm" class="card" autocomplete="off">
+      <label for="licKey" class="label">License key</label>
+      <input id="licKey" class="field mono" placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX" autocapitalize="characters" spellcheck="false" inputmode="text">
+      <p class="small muted">Your license key is on your GrokMate download page (Gumroad library or purchase email). It's checked once with Gumroad, then saved on this phone.</p>
+      <button class="btn primary wide" id="licBtn" type="submit">Unlock GrokMate</button>
+      <p class="msg" id="licMsg" role="status" aria-live="polite"></p>
+      <a class="link small" id="libLink" href="https://app.gumroad.com/library" target="_blank" rel="noopener noreferrer">Open my Gumroad library</a>
+    </form>
+    <p class="foot-note">Independent project. Not affiliated with xAI.</p>
+  </section>
+
+  <!-- ============================================================ AI setup -->
+  <section id="screen-setup" class="screen hidden" aria-labelledby="setup-title">
+    <header class="top"><div class="brand"><img src="icons/icon-192.png" alt="" class="logo" width="34" height="34"><span>GrokMate</span></div></header>
+    <div class="card">
+      <h1 id="setup-title">Connect an AI</h1>
+      <p class="muted small">GrokMate uses your own AI key. It's saved only on this phone and sent only to the provider you pick. Gemini and Groq have free tiers.</p>
+      <div id="providerList" class="providers" role="radiogroup" aria-label="AI provider"></div>
+      <label for="setupKey" class="label">API key for <span id="setupProvName">xAI Grok</span></label>
+      <div class="row-input">
+        <input id="setupKey" class="field mono" type="password" placeholder="Paste your API key" autocomplete="off" spellcheck="false">
+        <button class="btn small" id="setupShow" type="button" aria-label="Show key">Show</button>
+      </div>
+      <p class="small muted" id="setupCost"></p>
+      <div class="row gap wrap">
+        <a class="btn small" id="setupGetKey" href="#" target="_blank" rel="noopener noreferrer">Get a key</a>
+        <button class="btn small" type="button" data-open="sheet-help">How to get a free key</button>
+      </div>
+      <button class="btn primary wide mt" id="setupSave" type="button">Test &amp; continue</button>
+      <p class="msg" id="setupMsg" role="status" aria-live="polite"></p>
+      <button class="link small" id="setupSkip" type="button">Skip for now (timers and notes still work)</button>
+    </div>
+    <p class="foot-note">Independent project. Not affiliated with xAI.</p>
+  </section>
+
+  <!-- ============================================================ chat -->
+  <section id="screen-chat" class="screen hidden">
+    <header class="top sticky">
+      <div class="brand"><img src="icons/icon-192.png" alt="" class="logo" width="34" height="34"><span>GrokMate</span></div>
+      <div class="top-actions">
+        <button class="pill" id="modelPill" type="button" data-open="sheet-settings" aria-label="AI settings"><span class="dot"></span><span id="modelName">No AI</span></button>
+        <button class="icon-btn" id="notesBtn" type="button" data-open="sheet-notes" aria-label="Notes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7"/></svg></button>
+        <button class="icon-btn" id="muteBtn" type="button" aria-label="Mute spoken replies" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="ico-on"><path d="M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="ico-off"><path d="M4 9h4l5-4v14l-5-4H4z M16 9l5 6 M21 9l-5 6"/></svg></button>
+        <button class="icon-btn" id="settingsBtn" type="button" data-open="sheet-settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z M19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2 1.2L14.8 21h-4l-.3-2.4a7 7 0 0 1-2-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-2.4L4.6 9.9l2-3.4 1.9.7a7 7 0 0 1 2-1.2L10.8 3h4l.3 2.4a7 7 0 0 1 2 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 2.4z"/></svg></button>
+      </div>
+    </header>
+
+    <div id="installBar" class="install hidden" role="note">
+      <span id="installText">Install GrokMate on your Home Screen for one-tap access.</span>
+      <button class="btn small primary" id="installBtn" type="button">Install</button>
+      <button class="icon-btn small" id="installClose" type="button" aria-label="Hide">✕</button>
+    </div>
+
+    <main id="log" class="log" aria-live="polite" aria-label="Conversation">
+      <div id="empty" class="empty">
+        <img src="icons/icon-192.png" alt="" width="72" height="72" class="empty-logo">
+        <h2>Hey, I'm GrokMate.</h2>
+        <p class="muted">Tap the mic and talk, or type. Try:</p>
+        <div class="chips" id="chips">
+          <button class="chip" type="button">Set a timer for 10 minutes</button>
+          <button class="chip" type="button">What's the weather tomorrow?</button>
+          <button class="chip" type="button">Remind me at 5 pm to call mom</button>
+          <button class="chip" type="button">Note: buy milk and eggs</button>
+          <button class="chip" type="button">What's 15% of 84?</button>
+          <button class="chip" type="button">What can you do?</button>
+        </div>
+      </div>
+    </main>
+
+    <div id="timerBar" class="timer-bar hidden" aria-label="Running timers"></div>
+
+    <form id="composer" class="composer" autocomplete="off">
+      <button class="mic" id="micBtn" type="button" aria-label="Hold to talk">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z M5 11a7 7 0 0 0 14 0 M12 18v3"/></svg>
+      </button>
+      <textarea id="input" class="field input" rows="1" placeholder="Message GrokMate" aria-label="Message" enterkeyhint="send"></textarea>
+      <button class="send" id="sendBtn" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="ico-send"><path d="M4 12l16-8-6 16-2-6z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="ico-stop"><path d="M7 7h10v10H7z"/></svg>
+      </button>
+    </form>
+    <p class="voice-hint hidden" id="voiceHint" role="status"></p>
+    <footer class="foot-note">Independent project. Not affiliated with xAI. · <button class="link" type="button" data-open="sheet-about">About</button></footer>
+  </section>
+
+  <!-- ============================================================ settings -->
+  <div id="sheet-settings" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="set-title">
+    <div class="sheet-body">
+      <div class="sheet-head"><h2 id="set-title">Settings</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+
+      <h3>AI</h3>
+      <label class="label" for="setProvider">Provider</label>
+      <select id="setProvider" class="field"></select>
+      <div id="customBaseRow" class="hidden">
+        <label class="label" for="setBase">Base URL (OpenAI-compatible, https)</label>
+        <input id="setBase" class="field mono" placeholder="https://example.com/v1" spellcheck="false">
+      </div>
+      <label class="label" for="setModel">Model</label>
+      <div class="row-input">
+        <input id="setModel" class="field mono" list="modelList" spellcheck="false">
+        <button class="btn small" id="loadModels" type="button">Load list</button>
+      </div>
+      <datalist id="modelList"></datalist>
+      <label class="label" for="setKey">API key</label>
+      <div class="row-input">
+        <input id="setKey" class="field mono" type="password" placeholder="Paste your API key" autocomplete="off" spellcheck="false">
+        <button class="btn small" id="setKeyShow" type="button">Show</button>
+      </div>
+      <p class="small muted" id="setCost"></p>
+      <div class="row gap wrap">
+        <button class="btn small primary" id="testKey" type="button">Save &amp; test</button>
+        <a class="btn small" id="setGetKey" href="#" target="_blank" rel="noopener noreferrer">Get a key</a>
+        <button class="btn small" type="button" data-open="sheet-help">Free keys</button>
+      </div>
+      <p class="msg" id="setMsg" role="status" aria-live="polite"></p>
+      <label class="label" for="setToolMode">Tool use</label>
+      <select id="setToolMode" class="field">
+        <option value="auto">Automatic (function calling)</option>
+        <option value="text">Text mode (for models without function calling)</option>
+      </select>
+
+      <h3>Voice</h3>
+      <label class="switch"><input type="checkbox" id="setSpeak"> <span>Read replies aloud</span></label>
+      <label class="label" for="setVoice">Voice</label>
+      <select id="setVoice" class="field"><option value="">Phone default</option></select>
+      <label class="label" for="setRate">Speed <span id="rateVal">1.0×</span></label>
+      <input type="range" id="setRate" min="0.6" max="1.6" step="0.1" class="range">
+      <button class="btn small" id="testVoice" type="button">Test voice</button>
+      <label class="label" for="setLang">Speech recognition language</label>
+      <select id="setLang" class="field">
+        <option value="">Phone language</option>
+        <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-CA">English (Canada)</option>
+        <option value="en-AU">English (Australia)</option><option value="fr-CA">Français (Canada)</option><option value="fr-FR">Français</option>
+        <option value="es-ES">Español</option><option value="es-MX">Español (México)</option><option value="de-DE">Deutsch</option>
+        <option value="it-IT">Italiano</option><option value="pt-BR">Português (Brasil)</option><option value="hi-IN">हिन्दी</option>
+      </select>
+      <p class="small muted" id="voiceSupport"></p>
+
+      <h3>Tools</h3>
+      <label class="label" for="setUnits">Weather units</label>
+      <select id="setUnits" class="field"><option value="metric">°C, km/h</option><option value="imperial">°F, mph</option></select>
+      <label class="label" for="setSearch">Web search</label>
+      <select id="setSearch" class="field"><option value="google">Google</option><option value="duckduckgo">DuckDuckGo</option><option value="bing">Bing</option></select>
+      <label class="switch"><input type="checkbox" id="setAwake"> <span>Keep the screen on while a timer runs</span></label>
+
+      <h3>Your data</h3>
+      <p class="small muted">Chats, notes, timers and keys are stored only on this phone.</p>
+      <div class="row gap wrap">
+        <button class="btn small" type="button" data-open="sheet-notes">Notes &amp; export</button>
+        <button class="btn small danger" id="clearChat" type="button">Clear all chats</button>
+      </div>
+
+      <h3>Install</h3>
+      <p class="small muted" id="installHelp"></p>
+      <button class="btn small primary hidden" id="installBtn2" type="button">Install GrokMate</button>
+
+      <h3>License</h3>
+      <p class="small muted" id="licStatus"></p>
+      <button class="btn small" id="licRemove" type="button">Remove license from this phone</button>
+
+      <h3>About</h3>
+      <button class="btn small" type="button" data-open="sheet-about">About GrokMate Mobile</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ notes -->
+  <div id="sheet-notes" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="notes-title">
+    <div class="sheet-body">
+      <div class="sheet-head"><h2 id="notes-title">Notes</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+      <form id="noteForm" class="row-input">
+        <input id="noteNew" class="field" placeholder="New note">
+        <button class="btn small primary" type="submit">Add</button>
+      </form>
+      <input id="noteSearch" class="field" type="search" placeholder="Search notes" aria-label="Search notes">
+      <ul id="noteList" class="note-list"></ul>
+      <div class="row gap wrap">
+        <button class="btn small" id="exportTxt" type="button">Export .txt</button>
+        <button class="btn small" id="exportJson" type="button">Export .json</button>
+        <button class="btn small" id="shareNotes" type="button">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ free key help -->
+  <div id="sheet-help" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="sheet-body">
+      <div class="sheet-head"><h2 id="help-title">How to get a free key</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+      <p class="muted small">Both take about 2 minutes. Free tiers have limits (requests per minute and per day). If you hit a limit, wait a bit or switch provider.</p>
+      <div class="card">
+        <h3>Google Gemini (free tier)</h3>
+        <ol>
+          <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a> and sign in with a Google account.</li>
+          <li>Tap <b>Create API key</b> (accept the terms if asked).</li>
+          <li>Tap <b>Copy</b> next to the new key.</li>
+          <li>In GrokMate: Settings → Provider <b>Google Gemini</b> → paste the key → <b>Save &amp; test</b>.</li>
+        </ol>
+        <p class="small muted">Google may use free-tier prompts to improve its products. Don't share private details on the free tier.</p>
+      </div>
+      <div class="card">
+        <h3>Groq (free tier)</h3>
+        <ol>
+          <li>Open <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a> and sign up (email or Google).</li>
+          <li>Tap <b>Create API Key</b>, give it a name like "GrokMate", and submit.</li>
+          <li>Copy the key right away (it's shown only once).</li>
+          <li>In GrokMate: Settings → Provider <b>Groq</b> → paste the key → <b>Save &amp; test</b>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Want Grok itself?</h3>
+        <p class="small">Create a key at <a href="https://console.x.ai/" target="_blank" rel="noopener noreferrer">console.x.ai</a>. xAI bills you directly for what you use (pay as you go). GrokMate never charges for AI.</p>
+      </div>
+      <p class="small muted">Keep your key private. It's stored only on this phone; to remove it, clear it in Settings.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ about -->
+  <div id="sheet-about" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="about-title">
+    <div class="sheet-body">
+      <div class="sheet-head"><h2 id="about-title">About GrokMate Mobile</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+      <p><b>GrokMate Mobile</b> <span id="aboutVersion"></span></p>
+      <p class="strong">Independent project. Not affiliated with xAI.</p>
+      <h3>What it can do</h3>
+      <ul class="small">
+        <li>Chat by voice or text with your own AI key (xAI Grok, Gemini, Groq, OpenRouter or OpenAI).</li>
+        <li>Timers that ring with sound and vibration <b>while GrokMate is open</b>.</li>
+        <li>Notes saved on this phone (search, delete, export).</li>
+        <li>Reminders as calendar events: tap "Add to calendar" and your phone's calendar alerts you, even when GrokMate is closed.</li>
+        <li>Buttons to call, text, email, open maps or search. Nothing happens until you tap.</li>
+        <li>Weather (Open-Meteo), copy &amp; share, date, time and maths.</li>
+      </ul>
+      <h3>What it can't do</h3>
+      <p class="small">It can't control other apps, set system alarms, read your contacts or messages, or listen in the background (no wake word). It doesn't control your PC; for that, use the phone remote in GrokMate for Windows ("pair a phone").</p>
+      <h3>Privacy</h3>
+      <ul class="small">
+        <li>Your chats, notes, timers, settings and API key are stored only on this phone.</li>
+        <li>Your messages go straight from this phone to the AI provider you chose, under that provider's terms. There's no GrokMate server.</li>
+        <li>Your license key is checked with Gumroad. Weather lookups go to Open-Meteo (your location only if you ask for local weather).</li>
+        <li>Voice input uses your browser's speech service (Chrome sends audio to Google; Safari uses Apple). Spoken replies use your phone's voices.</li>
+      </ul>
+      <p class="small muted">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a> (CC BY 4.0).</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ timer ringing -->
+  <div id="ring" class="ring hidden" role="alertdialog" aria-modal="true" aria-labelledby="ring-title">
+    <div class="ring-body">
+      <div class="ring-pulse" aria-hidden="true"></div>
+      <h2 id="ring-title">Time's up!</h2>
+      <p id="ringLabel" class="muted"></p>
+      <button class="btn primary wide" id="ringStop" type="button">Stop</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
