@@ -25,7 +25,7 @@ export const TOOL_DEFS = [
       alert_minutes_before: { type: "integer", description: "Default 0 (alert at the start time)" },
       notes: { type: "string" },
     }, ["title", "start"]),
-  fn("quick_action", "Prepare a button the user taps to call, text, email, open maps, search the web or open a link. Never runs by itself.",
+  fn("quick_action", "Prepare a button the user taps to call, text, email, open maps, search the web or open a link. Never runs by itself. This is the only way to offer a web search (type \"search\"); you never see the results.",
     {
       type: { type: "string", enum: ["call", "sms", "email", "maps", "search", "link"] },
       target: { type: "string", description: "Phone number, email address, place, search words or https link" },

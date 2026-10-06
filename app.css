@@ -11,8 +11,8 @@ a{color:var(--accent)}
 .sticky{position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg) 70%,transparent)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:.2px}
 .logo{width:34px;height:34px;border-radius:9px;box-shadow:0 0 0 1px #ffffff12}
-.top-actions{display:flex;align-items:center;gap:6px}
-.pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:0;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;color:var(--muted);max-width:150px;cursor:pointer}
+.top-actions{display:flex;align-items:center;gap:6px;min-width:0}
+.pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:0;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;color:var(--muted);max-width:190px;min-width:0;flex:0 1 auto;cursor:pointer}
 .pill span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none}
 .pill.ok .dot{background:var(--accent);box-shadow:0 0 8px var(--accent)}
@@ -123,3 +123,17 @@ select.field{appearance:none;background-image:linear-gradient(45deg,transparent 
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#22303f;color:var(--fg);padding:10px 16px;border-radius:12px;max-width:90%;box-shadow:0 6px 24px #0008;z-index:40;font-size:14px}
 @media (min-width:760px){.sheet{align-items:center}.sheet-body{border-radius:20px;max-height:86vh}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+/* Chat header: must fit 360-430 px phones (logo, model pill, 4 buttons). */
+.chat-top{gap:6px}
+.chat-top .brand{flex:none;min-width:0}
+.chat-top .top-actions{flex:1 1 auto;justify-content:flex-end;gap:5px}
+.chat-top .icon-btn{width:38px;height:38px}
+@media (max-width:479px){.chat-top .brand-name{display:none}.chat-top .pill{padding:7px 10px;gap:6px}}
+@media (max-width:340px){.chat-top .logo{display:none}}
+/* "Search the web: …" link (safety net for fake search placeholders in replies) */
+.search-link{display:flex;width:fit-content;max-width:100%;align-items:center;gap:6px;margin-top:8px;padding:6px 11px;border-radius:999px;background:#0e2a2a;border:1px solid #1f4a48;color:var(--accent);text-decoration:none;font-size:14.5px;white-space:normal}
+.search-link:active{transform:scale(.98)}
+.search-ico{font-size:13px}
+.chat-list .chat-open{flex:1;appearance:none;background:none;border:0;color:var(--fg);font:inherit;text-align:left;cursor:pointer;padding:0;min-width:0}
+.chat-list .ct{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet .chat-list{padding-left:0}

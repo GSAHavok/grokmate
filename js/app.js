@@ -3,7 +3,8 @@ import { CONFIG, PROVIDERS, DEFAULT_PROVIDER } from "./config.js";
 import * as store from "./store.js";
 import * as license from "./license.js";
 import { runTurn, complete, listModels, LLMError } from "./llm.js";
-import { runTool, timers, notes, fmtDuration, isIOS, datetime } from "./tools.js";
+import { runTool, timers, notes, fmtDuration, isIOS, datetime, actionLink } from "./tools.js";
+import { splitSearchPlaceholders, stripSearchPlaceholders, hideOpenPlaceholder } from "./placeholders.js";
 import { calculate, formatNumber } from "./mathx.js";
 import { Listener, Speaker, sttSupported, ttsSupported } from "./voice.js";
 
@@ -24,6 +25,7 @@ const el = (tag, props = {}, ...kids) => {
 const state = {
   settings: store.getSettings(),
   history: store.load("history", []),
+  chatId: 0,          // changes on New chat / reopen, so a reply still streaming can't land in the wrong chat
   busy: false,
   abort: null,
   deferredInstall: null,
@@ -51,6 +53,7 @@ function show(screen) {
 function openSheet(id) {
   if (id === "sheet-settings") fillSettings();
   if (id === "sheet-notes") renderNotes();
+  if (id === "sheet-chats") renderChats();
   $(id).classList.remove("hidden");
 }
 function closeSheets() { document.querySelectorAll(".sheet").forEach((s) => s.classList.add("hidden")); }
@@ -102,7 +105,16 @@ function unlockAudio() {
 
 /* ================================================================== license */
 async function boot() {
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) {
+    // When an update takes over, reload once so the new version runs (only if nothing is in progress).
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || state.busy || $("input").value.trim()) return;
+      try { if (sessionStorage.getItem("gm.swReloaded")) return; sessionStorage.setItem("gm.swReloaded", "1"); } catch (e) { return; }
+      location.reload();
+    });
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
   document.addEventListener("pointerdown", unlockAudio, { capture: true });
   wireStatic();
   applySettings();
@@ -202,13 +214,44 @@ function updatePill() {
   const pill = $("modelPill");
   pill.classList.toggle("ok", !!p.key && !state.busy);
   pill.classList.toggle("busy", state.busy);
-  $("modelName").textContent = p.key ? p.model || p.name : "No AI key";
+  const full = p.key ? p.model || p.name : "No AI key";
+  // "openai/gpt-oss-120b" -> "gpt-oss-120b" so the useful part fits the narrow header.
+  const short = p.key && p.model && p.model.includes("/") ? (/\/auto$/.test(p.model) ? `${p.name} auto` : p.model.split("/").pop()) : full;
+  $("modelName").textContent = short;
+  pill.title = full;
+  pill.setAttribute("aria-label", `AI settings (${full})`);
 }
 
 function scrollDown() { const log = $("log"); log.scrollTop = log.scrollHeight; }
 
 function bubble(role, text) {
-  return el("div", { class: `bubble ${role}`, text: String(text || "").replace(/\*\*(.+?)\*\*/g, "$1") });
+  const b = el("div", { class: `bubble ${role}` });
+  setBubbleText(b, text, role);
+  return b;
+}
+
+/* Fills a chat bubble. Assistant text gets a safety net: a fake tool call such as
+   "[Search the web for spinach dip]" becomes a tappable "Search the web: spinach dip" link. */
+function setBubbleText(b, text, role = "assistant", { streaming = false } = {}) {
+  let t = String(text || "").replace(/\*\*(.+?)\*\*/g, "$1");
+  if (!/\bassistant\b/.test(role)) { b.textContent = t; return; }
+  if (streaming) t = hideOpenPlaceholder(t);
+  const parts = splitSearchPlaceholders(t);
+  b.textContent = "";
+  parts.forEach((part, i) => {
+    if (part.type === "text") {
+      // Trim the blank line the model leaves before or after a placeholder.
+      let s = part.text;
+      if (i > 0 && parts[i - 1].type !== "text") s = s.replace(/^\s+/, "");
+      if (i < parts.length - 1 && parts[i + 1].type !== "text") s = s.replace(/\s+$/, "");
+      if (s) b.append(document.createTextNode(s));
+    } else if (part.type === "search") {
+      let href;
+      try { href = actionLink({ type: "search", target: part.query }, { search: state.settings.search }).href; } catch (e) { return; }
+      b.append(el("a", { class: "search-link", href, target: "_blank", rel: "noopener noreferrer", "data-search": part.query },
+        el("span", { class: "search-ico", "aria-hidden": "true", text: "🔎" }), `Search the web: ${part.query}`));
+    }
+  });
 }
 
 function renderHistory() {
@@ -236,7 +279,8 @@ function saveHistory() {
 
 function contextMessages() {
   return state.history.filter((m) => m.role === "user" || m.role === "assistant").slice(-CONFIG.CONTEXT_MESSAGES)
-    .map((m) => ({ role: m.role, content: (m.text || "") + (m.toolNotes && m.toolNotes.length ? `\n(tools used: ${m.toolNotes.join("; ")})` : "") || "(no text)" }));
+    // Placeholders like "[Search the web for …]" are stripped so the model doesn't copy its own bad habit.
+    .map((m) => ({ role: m.role, content: (m.role === "assistant" ? stripSearchPlaceholders(m.text || "") : m.text || "") + (m.toolNotes && m.toolNotes.length ? `\n(tools used: ${m.toolNotes.join("; ")})` : "") || "(no text)" }));
 }
 
 /* ------------------------------------------------------------------ cards */
@@ -344,6 +388,8 @@ async function send(text) {
   speaker.stop();
   $("empty").classList.add("hidden");
   const history = contextMessages();
+  const chatId = state.chatId;
+  const sameChat = () => state.chatId === chatId;
   const user = { role: "user", text, ts: Date.now() };
   state.history.push(user);
   $("log").append(renderEntry(user));
@@ -368,9 +414,10 @@ async function send(text) {
     entry.text = local || (p.key
       ? "You're offline. I can still set timers, take notes, tell the time and do maths."
       : "I need an AI key for that. Tap the AI button at the top to add one (Gemini and Groq have free tiers). Timers, notes, time and maths work without one.");
-    b.classList.remove("typing"); b.textContent = entry.text;
+    b.classList.remove("typing"); setBubbleText(b, entry.text);
     speaker.say(entry.text);
-    state.history.push(entry); saveHistory(); scrollDown();
+    if (sameChat()) { state.history.push(entry); saveHistory(); }
+    scrollDown();
     return;
   }
 
@@ -383,8 +430,8 @@ async function send(text) {
       maxRounds: CONFIG.MAX_TOOL_ROUNDS,
       hooks: {
         onRoundStart: (round) => { if (round > 0 && shown) { shown += "\n"; } },
-        onText: (d) => { shown += d; b.textContent = shown.replace(/\*\*(.+?)\*\*/g, "$1"); if (!/^\s*TOOL:/m.test(shown)) speaker.feed(d); scrollDown(); },
-        onReplaceText: (t) => { shown = t; b.textContent = t; },
+        onText: (d) => { shown += d; setBubbleText(b, shown, "assistant", { streaming: true }); if (!/^\s*TOOL:/m.test(shown)) speaker.feed(d); scrollDown(); },
+        onReplaceText: (t) => { shown = t; setBubbleText(b, t, "assistant", { streaming: true }); },
         runTool: runOne,
         onToolsUnsupported: () => {
           const nt = store.load("noTools", {}); nt[p.id] = true; store.save("noTools", nt);
@@ -393,30 +440,32 @@ async function send(text) {
       },
     });
     entry.text = (out.text || shown).trim();
-    b.textContent = entry.text.replace(/\*\*(.+?)\*\*/g, "$1");
+    setBubbleText(b, entry.text);
     if (!entry.text) b.remove();
     speaker.flush();
   } catch (e) {
     speaker.stop();
     if (e && e.name === "AbortError") {
       entry.text = shown.trim() ? shown.trim() + " …" : "(stopped)";
-      b.textContent = entry.text;
+      setBubbleText(b, entry.text);
     } else {
       b.remove();
       const err = { role: "error", text: e instanceof LLMError || e.message ? e.message : String(e), ts: Date.now() };
       row.append(bubble("error", err.text));
       entry.text = shown.trim();
-      state.history.push(entry.text || entry.cards.length ? entry : null, err);
-      state.history = state.history.filter(Boolean);
-      saveHistory(); setBusy(false); scrollDown();
+      if (sameChat()) {
+        state.history.push(entry.text || entry.cards.length ? entry : null, err);
+        state.history = state.history.filter(Boolean);
+        saveHistory();
+      }
+      setBusy(false); scrollDown();
       return;
     }
   } finally {
     b.classList.remove("typing");
     state.abort = null;
   }
-  state.history.push(entry);
-  saveHistory();
+  if (sameChat()) { state.history.push(entry); saveHistory(); }
   setBusy(false);
   scrollDown();
 }
@@ -684,13 +733,94 @@ function wireSettings() {
   $("setSearch").addEventListener("change", (e) => { state.settings = store.setSettings({ search: e.target.value }); });
   $("setAwake").addEventListener("change", (e) => { state.settings = store.setSettings({ keepAwake: e.target.checked }); renderTimerBar(); });
   $("clearChat").addEventListener("click", () => {
-    if (!confirm("Delete all chats on this phone? Notes are kept.")) return;
-    state.history = []; store.remove("history"); renderHistory(); toast("All chats deleted.");
+    if (!confirm("Delete all chats on this phone, including past chats? Notes are kept.")) return;
+    stopReply(); state.chatId++;
+    state.history = []; store.remove("history"); store.remove("chats"); renderHistory(); toast("All chats deleted.");
   });
   $("licRemove").addEventListener("click", () => {
     if (!confirm("Remove the license from this phone? You'll need the key again to unlock GrokMate.")) return;
     license.forget(); closeSheets(); show("screen-license");
   });
+}
+
+/* ================================================================== chats */
+const MAX_PAST_CHATS = 10;
+const MAX_PAST_ENTRIES = 120;
+
+function pastChats() { const l = store.load("chats", []); return Array.isArray(l) ? l.filter((c) => c && Array.isArray(c.history)) : []; }
+
+function saveChats(list) {
+  list = list.slice(0, MAX_PAST_CHATS);
+  while (!store.save("chats", list) && list.length) list.pop(); // storage full: drop the oldest
+  return list;
+}
+
+function chatTitle(history) {
+  const first = history.find((m) => m.role === "user" && m.text);
+  const t = String(first ? first.text : "Chat").replace(/\s+/g, " ").trim();
+  return t.length > 60 ? t.slice(0, 57) + "…" : t;
+}
+
+function stopReply() { if (state.busy && state.abort) state.abort.abort(); speaker.stop(); }
+
+/* Moves the current thread to Past chats (if it has anything in it). */
+function archiveCurrent() {
+  const h = state.history.filter((m) => m && (m.role === "user" || m.role === "assistant" || m.role === "error"));
+  if (!h.some((m) => m.role === "user")) return;
+  const last = h[h.length - 1];
+  const list = pastChats();
+  list.unshift({ id: store.uid(), title: chatTitle(h), ts: (last && last.ts) || Date.now(), n: h.length, history: h.slice(-MAX_PAST_ENTRIES) });
+  saveChats(list);
+}
+
+function setCurrent(history) {
+  stopReply();
+  state.chatId++;
+  state.history = history;
+  if (history.length) saveHistory(); else store.remove("history");
+  $("input").value = ""; autoGrow();
+  renderHistory();
+}
+
+function startNewChat() {
+  archiveCurrent();
+  setCurrent([]);
+  closeSheets();
+  toast("New chat started.");
+  $("input").focus({ preventScroll: true });
+}
+
+function openPastChat(id) {
+  const list = pastChats();
+  const c = list.find((x) => x.id === id);
+  if (!c) return;
+  saveChats(list.filter((x) => x.id !== id));
+  archiveCurrent();
+  setCurrent(c.history);
+  closeSheets();
+}
+
+function renderChats() {
+  const hasCurrent = state.history.some((m) => m.role === "user");
+  $("newChatHint").textContent = hasCurrent
+    ? "This clears the conversation from the screen. It's kept under Past chats on this phone, so you can reopen it."
+    : "This chat is empty. Past chats are below.";
+  const ul = $("chatList");
+  ul.textContent = "";
+  const list = pastChats();
+  if (!list.length) ul.append(el("li", { class: "muted", text: "No past chats yet." }));
+  for (const c of list) {
+    ul.append(el("li", { "data-chat": c.id },
+      el("button", { class: "chat-open", type: "button", onclick: () => openPastChat(c.id) },
+        el("span", { class: "ct", text: c.title || "Chat" }),
+        el("span", { class: "nd", text: `${new Date(c.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · ${c.n || c.history.length} messages` })),
+      el("button", { class: "icon-btn small", type: "button", "aria-label": "Delete this past chat", text: "🗑",
+        onclick: () => { if (confirm("Delete this past chat?")) { saveChats(pastChats().filter((x) => x.id !== c.id)); renderChats(); } } })));
+  }
+}
+
+function wireChats() {
+  $("newChatGo").addEventListener("click", startNewChat);
 }
 
 /* ================================================================== notes */
@@ -792,6 +922,7 @@ function wireStatic() {
   if (ttsSupported()) speechSynthesis.addEventListener ? speechSynthesis.addEventListener("voiceschanged", fillVoices) : (speechSynthesis.onvoiceschanged = fillVoices);
   wireSettings();
   wireNotes();
+  wireChats();
   setupVoice();
   setInterval(tick, 250);
 }

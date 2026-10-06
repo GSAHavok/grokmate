@@ -1,14 +1,15 @@
 /* GrokMate Mobile service worker: keeps the app shell available offline.
    It never touches requests to other sites (AI providers, Gumroad, weather). */
-const VERSION = "grokmate-mobile-1.0.0";
+const VERSION = "grokmate-mobile-1.0.1";
 const SHELL = [
   "./", "index.html", "app.css", "manifest.webmanifest",
-  "js/app.js", "js/config.js", "js/store.js", "js/license.js", "js/llm.js", "js/tools.js", "js/mathx.js", "js/ics.js", "js/voice.js",
+  "js/app.js", "js/config.js", "js/store.js", "js/license.js", "js/llm.js", "js/tools.js", "js/mathx.js", "js/ics.js", "js/voice.js", "js/placeholders.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload" skips the browser's HTTP cache, so an update never re-caches old files.
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {

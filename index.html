@@ -65,10 +65,12 @@
 
   <!-- ============================================================ chat -->
   <section id="screen-chat" class="screen hidden">
-    <header class="top sticky">
-      <div class="brand"><img src="icons/icon-192.png" alt="" class="logo" width="34" height="34"><span>GrokMate</span></div>
+    <header class="top sticky chat-top">
+      <div class="brand"><img src="icons/icon-192.png" alt="" class="logo" width="34" height="34"><span class="brand-name">GrokMate</span></div>
       <div class="top-actions">
         <button class="pill" id="modelPill" type="button" data-open="sheet-settings" aria-label="AI settings"><span class="dot"></span><span id="modelName">No AI</span></button>
+        <button class="icon-btn" id="newChatBtn" type="button" data-open="sheet-chats" aria-label="New chat" title="New chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6 M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
         <button class="icon-btn" id="notesBtn" type="button" data-open="sheet-notes" aria-label="Notes">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7"/></svg></button>
         <button class="icon-btn" id="muteBtn" type="button" aria-label="Mute spoken replies" aria-pressed="false">
@@ -181,6 +183,7 @@
       <p class="small muted">Chats, notes, timers and keys are stored only on this phone.</p>
       <div class="row gap wrap">
         <button class="btn small" type="button" data-open="sheet-notes">Notes &amp; export</button>
+        <button class="btn small" type="button" data-open="sheet-chats">Past chats</button>
         <button class="btn small danger" id="clearChat" type="button">Clear all chats</button>
       </div>
 
@@ -194,6 +197,18 @@
 
       <h3>About</h3>
       <button class="btn small" type="button" data-open="sheet-about">About GrokMate Mobile</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ chats -->
+  <div id="sheet-chats" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="chats-title">
+    <div class="sheet-body">
+      <div class="sheet-head"><h2 id="chats-title">New chat</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+      <p class="small muted" id="newChatHint"></p>
+      <button class="btn primary wide" id="newChatGo" type="button">Start a new chat</button>
+      <h3>Past chats</h3>
+      <ul id="chatList" class="note-list chat-list"></ul>
+      <p class="small muted">Your last 10 chats are kept on this phone. Tap one to reopen it. Settings → Clear all chats deletes them all.</p>
     </div>
   </div>
 

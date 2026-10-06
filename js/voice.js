@@ -1,5 +1,6 @@
 /* Voice: push-to-talk speech recognition (Web Speech API) and spoken replies
    (speechSynthesis). Both are optional; typing always works. */
+import { stripSearchPlaceholders } from "./placeholders.js";
 
 const SR = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 
@@ -92,7 +93,7 @@ export class Speaker {
 
   say(text) {
     if (!this.enabled || !ttsSupported()) return;
-    const clean = String(text || "").replace(/https?:\/\/\S+/g, "").replace(/[*_#`>|]/g, "").trim();
+    const clean = stripSearchPlaceholders(text).replace(/https?:\/\/\S+/g, "").replace(/[*_#`>|]/g, "").trim();
     if (!clean) return;
     const u = new SpeechSynthesisUtterance(clean);
     const v = this.voices().find((x) => x.voiceURI === this.voiceURI);

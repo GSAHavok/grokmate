@@ -1,7 +1,7 @@
 /* GrokMate Mobile configuration. Plain constants: edit here, nothing else. */
 
 export const CONFIG = Object.freeze({
-  VERSION: "1.0.0",
+  VERSION: "1.0.1",
   // Gumroad product that sells GrokMate (combined PC + mobile listing).
   GUMROAD_PRODUCT_ID: "7B2ojeO8ghmsuaqetQ6JRg==",
   GUMROAD_VERIFY_URL: "https://api.gumroad.com/v2/licenses/verify",
